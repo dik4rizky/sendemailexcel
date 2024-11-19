@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Sender</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            max-width: 400px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0px 0px 10px rgba(0,0,0,0.1);
+        }
+        input[type="file"], button {
+            width: 100%;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Unggah File Excel</h2>
+    <input type="file" id="fileInput" accept=".xlsx, .xls">
+    <button onclick="processFile()">Kirim Email</button>
+    <p id="status"></p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.16.9/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/emailjs-com@2.6.4/dist/email.min.js"></script>
+<script>
+    emailjs.init("YOUR_USER_ID"); // Ganti dengan User ID dari EmailJS
+
+    function processFile() {
+        const fileInput = document.getElementById('fileInput');
+        const status = document.getElementById('status');
+
+        if (!fileInput.files.length) {
+            alert("Pilih file Excel terlebih dahulu");
+            return;
+        }
+
+        const file = fileInput.files[0];
+        const reader = new FileReader();
+
+        reader.onload = function(event) {
+            const data = new Uint8Array(event.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+            sendEmails(rows);
+        };
+
+        reader.readAsArrayBuffer(file);
+    }
+
+    function sendEmails(rows) {
+        rows.shift(); // Menghapus header
+        let successCount = 0;
+        let failedCount = 0;
+
+        rows.forEach((row, index) => {
+            const email = row[0];
+            const message = row[1];
+            const link = row[2];
+
+            if (email && message && link) {
+                emailjs.send("YOUR_SERVICE_ID", "YOUR_TEMPLATE_ID", {
+                    to_email: email,
+                    message: message,
+                    link: link
+                }).then(() => {
+                    successCount++;
+                    updateStatus(successCount, failedCount, rows.length);
+                }).catch(() => {
+                    failedCount++;
+                    updateStatus(successCount, failedCount, rows.length);
+                });
+            } else {
+                failedCount++;
+                updateStatus(successCount, failedCount, rows.length);
+            }
+        });
+    }
+
+    function updateStatus(success, failed, total) {
+        const status = document.getElementById('status');
+        status.innerText = `Sukses: ${success}, Gagal: ${failed}, Total: ${total}`;
+    }
+</script>
+</body>
+</html>
